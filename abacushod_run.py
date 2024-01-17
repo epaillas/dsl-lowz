@@ -4,13 +4,14 @@ import numpy as np
 import argparse
 from abacusnbody.hod.abacus_hod import AbacusHOD
 from astropy.table import Table, vstack
-from pyrecon import utils
 from cosmoprimo.utils import DistanceToRedshift
 from pathlib import Path
+from pyrecon import utils
+import os
 from scipy.interpolate import CubicSpline
-from cosmoprimo.fiducial import AbacusSummit
+from cosmoprimo.fiducial import AbacusSummit, BOSS
 from scipy.interpolate import InterpolatedUnivariateSpline
-import healpy
+# import healpy
 import fitsio
 import logging
 import warnings
@@ -131,7 +132,7 @@ def get_hod(p, param_mapping, param_tracer, data_params, Ball, nthread):
     Ball.tracers["LRG"]["ic"] = min(
         1, data_params["tracer_density_mean"]["LRG"] * Ball.params["Lbox"] ** 3 / N_lrg
     )
-    mock_dict = Ball.run_hod(Ball.tracers, Ball.want_rsd, Nthread=nthread)
+    mock_dict = Ball.run_hod(Ball.tracers, Ball.want_rsd, Nthread=nthread, reseed=args.seed)
     return mock_dict
 
 
@@ -157,7 +158,8 @@ def setup_hod(config):
     return Balls, param_mapping, param_tracer, data_params
 
 
-def spl_nofz(zarray, fsky, cosmo, zmin, zmax, Nzbins=100):
+def spl_nofz(zarray, fsky, cosmo, Nzbins=50):
+    zmin, zmax = zarray.min(), zarray.max()
     zbins = np.linspace(zmin, zmax, Nzbins + 1)
     Nz, zbins = np.histogram(zarray, zbins)
     zmid = zbins[0:-1] + (zmax - zmin) / Nzbins / 2.0
@@ -170,15 +172,27 @@ def spl_nofz(zarray, fsky, cosmo, zmin, zmax, Nzbins=100):
     return spl_nz
 
 
-def get_fsky(ra, dec):
-    nside = 256
-    npix = healpy.nside2npix(nside)
-    phi = np.radians(ra)
-    theta = np.radians(90.0 - dec)
-    pixel_indices = healpy.ang2pix(nside, theta, phi)
-    pixel_unique = np.unique(pixel_indices)
-    fsky = len(pixel_unique) / npix
-    return fsky
+# def get_fsky(ra, dec):
+#     nside = 256
+#     npix = healpy.nside2npix(nside)
+#     phi = np.radians(ra)
+#     theta = np.radians(90.0 - dec)
+#     pixel_indices = healpy.ang2pix(nside, theta, phi)
+#     pixel_unique = np.unique(pixel_indices)
+#     fsky = len(pixel_unique) / npix
+#     return fsky
+
+
+def downsample(data, target_nz):
+    idx_accept = []
+    ratio = data['NZ'].max() / (target_nz(data['Z']).max()*1.2)
+    norm = np.max(target_nz(data['Z']))
+    if all(np.greater(data['NZ'], target_nz(data['Z'])*1.2)):
+        data['Z'] = np.random.choice(data['Z'], size=round(len(data['Z'])/ratio), replace=False)
+    rnd_num = np.random.uniform(size=len(data['Z']))
+    idx_accept = np.where(rnd_num <= target_nz(data['Z'])/norm)[0]
+    return idx_accept
+
 
 
 if __name__ == "__main__":
@@ -193,7 +207,10 @@ if __name__ == "__main__":
     parser.add_argument("--survey", type=str, default="CMASS")
     parser.add_argument("--tracer", type=str, default="LRG")
     parser.add_argument("--match_nz", action="store_true")
-    parser.add_argument("--hod_prior", type=str, default="testprior")
+    parser.add_argument("--hod_prior", type=str, default="baseline")
+    parser.add_argument("--zmin", type=float, default=0.0)
+    parser.add_argument("--zmax", type=float, default=10.0)
+    parser.add_argument("--seed", type=int, default=None)
 
     args = parser.parse_args()
     start_hod = args.start_hod
@@ -211,22 +228,8 @@ if __name__ == "__main__":
     fsky = 1 / 8  # default sky fraction for the lightcones
 
     zranges = {
-        "DESI": {
-            "LRG": [
-                0.400,
-                0.450,
-                0.500,
-                0.575,
-                0.650,
-                0.725,
-                0.800,
-                0.875,
-                0.950,
-                1.025,
-                1.100,
-            ]
-        },
-        "LOWZ": {"LRG": [0.150, 0.200, 0.250, 0.300, 0.350, 0.400, 0.450, 0.500]},
+        "DESI": {"LRG": [0.400, 0.450, 0.500, 0.575, 0.650, 0.725, 0.800, 0.875, 0.950, 1.025, 1.100]},
+        "LOWZ": {"LRG": [0.100, 0.150, 0.200, 0.250, 0.300, 0.350, 0.400, 0.450, 0.500]},
         "CMASS": {"LRG": [0.400, 0.450, 0.500, 0.575, 0.650, 0.725]},
     }
 
@@ -248,7 +251,11 @@ if __name__ == "__main__":
         for phase in range(start_phase, start_phase + n_phase):
             sim_fn = f"AbacusSummit_base_c{cosmo:03}_ph{phase:03}"
             config["sim_params"]["sim_name"] = sim_fn
-            Balls, param_mapping, param_tracer, data_params = setup_hod(config)
+            try:
+                Balls, param_mapping, param_tracer, data_params = setup_hod(config)
+            except:
+                logger.info(f"Skipping {sim_fn} as files are not present")
+                continue
 
             for hod in range(start_hod, start_hod + n_hod):
                 start_time = time.time()
@@ -268,12 +275,13 @@ if __name__ == "__main__":
                     dist, ra, dec = utils.cartesian_to_sky(np.c_[x, y, z])
                     d2z = DistanceToRedshift(mock_cosmo.comoving_radial_distance)
                     redshift = d2z(dist)
+                    mask = (redshift >= args.zmin) & (redshift <= args.zmax)
 
                     data_positions_sky.append(
                         np.c_[
-                            ra,
-                            dec,
-                            redshift,
+                            ra[mask],
+                            dec[mask],
+                            redshift[mask],
                         ]
                     )
                 data_positions_sky = np.concatenate(data_positions_sky, axis=0)
@@ -283,8 +291,6 @@ if __name__ == "__main__":
                     data_positions_sky[:, 2],
                     fsky,
                     mock_cosmo,
-                    data_positions_sky[:, 2].min(),
-                    data_positions_sky[:, 2].max(),
                 )
                 nz = spl_nz(data_positions_sky[:, 2])
 
@@ -294,7 +300,8 @@ if __name__ == "__main__":
                     "Z": data_positions_sky[:, 2],
                     "NZ": nz,
                 }
-                output_dir = f"/pscratch/sd/e/epaillas/summit_lightcones/HOD/{args.survey}/{args.tracer}/{args.hod_prior}"
+                output_dir = f"/pscratch/sd/e/epaillas/summit_lightcones/HOD/{args.survey}/{args.tracer}/{args.hod_prior}/c{cosmo:03}_ph{phase:03}/complete/"
+                if args.seed is not None: output_dir = output_dir + f"/seed{args.seed}/"
                 Path.mkdir(Path(output_dir), parents=True, exist_ok=True)
                 output_fn = (
                     Path(output_dir)
@@ -319,17 +326,36 @@ if __name__ == "__main__":
                             data_mocks_downsampled["Z"],
                             fsky,
                             mock_cosmo,
-                            zmin,
-                            zmax,
                         )
                         nz = spl_nz(data_mocks_downsampled["Z"])
                         data_mocks_downsampled["NZ"] = nz
-                        output_dir = f"/pscratch/sd/e/epaillas/summit_lightcones/HOD/{args.survey}/{args.tracer}/{args.hod_prior}"
+                        output_dir = f"/pscratch/sd/e/epaillas/summit_lightcones/HOD/{args.survey}/{args.tracer}/{args.hod_prior}/c{cosmo:03}_ph{phase:03}"
                         Path.mkdir(Path(output_dir), parents=True, exist_ok=True)
                         output_fn = (
                             Path(output_dir)
                             / f"AbacusSummit_lightcone_c{cosmo:03}_ph{phase:03}_hod{hod:03}.npy"
                         )
                         np.save(output_fn, data_mocks_downsampled)
+                    elif args.survey == "LOWZ":
+                        data_mocks = np.load(output_fn, allow_pickle=True).item()
+                        data_fn = "/pscratch/sd/e/epaillas/dsl-lowz/nz_lowz.txt"
+                        data = np.genfromtxt(data_fn, skip_header=1)
+                        z = data[:, 0]
+                        nz = data[:, 1]
+                        nz_spline = InterpolatedUnivariateSpline(z, nz, k=1)
+                        downsampled_idx = downsample(data_mocks, nz_spline)
+                        downsampled_mocks = data_mocks.copy()
+                        downsampled_mocks['Z'] = data_mocks['Z'][downsampled_idx]
+                        spl_nz = spl_nofz(downsampled_mocks['Z'], fsky, mock_cosmo, Nzbins=100)
+                        downsampled_mocks['NZ'] = spl_nz(downsampled_mocks['Z'])
+                        output_dir = f"/pscratch/sd/e/epaillas/summit_lightcones/HOD/{args.survey}/{args.tracer}/{args.hod_prior}/c{cosmo:03}_ph{phase:03}"
+                        Path.mkdir(Path(output_dir), parents=True, exist_ok=True)
+                        output_fn = (
+                            Path(output_dir)
+                            / f"AbacusSummit_lightcone_c{cosmo:03}_ph{phase:03}_hod{hod:03}.npy"
+                        )
+                        np.save(output_fn, downsampled_mocks)
+
                     else:
                         raise NotImplementedError
+

@@ -2,13 +2,16 @@ from scipy.stats import qmc
 import numpy as np
 from pathlib import Path
 
-prior = 'testprior'
+prior = 'vanilla'
 
-# order of the parameters
-header = "logM1, logM_cut, alpha, alpha_s, alpha_c, logsigma, kappa, B_cen, B_sat"
-
-pmins = np.array([13.2, 12.4, 0.7, 0.7, 0.0, -3.0, 0.0, -0.5, -1.0])
-pmaxs = np.array([14.4, 13.3, 1.5, 1.3, 0.5, 0.0, 1.5, 0.5, 1.0])
+if prior == 'baseline':
+    header = "logM_cut, logM_1, sigma, alpha, kappa, s, B_cen, B_sat"
+    pmins = np.array([12.4, 13.2, -3.0, 0.7, 0.0, -1.0, -1.0, -1.0])
+    pmaxs = np.array([13.3, 14.4, 0.0, 1.5, 1.5, 1.0, 1.0, 1.0])
+elif prior == 'vanilla':
+    header = "logM_cut, logM_1, sigma, alpha, kappa"
+    pmins = np.array([12.4, 13.2, -3.0, 0.7, 0.0])
+    pmaxs = np.array([13.3, 14.4, 0.0, 1.5, 1.5])
 
 sampler = qmc.LatinHypercube(d=len(pmins), seed=42)
 params = sampler.random(n=85000)
