@@ -25,6 +25,9 @@ for name in params.keys():
     train_params[name]=list(np.array(params[name])[100:])
 features = np.load(args.features)[100:]
 
+# scale = np.std(features, axis=0)
+# features = features / scale
+
 # set up the neural network
 cp_nn = cosmopower_NN(parameters=list(params.keys()), 
                     modes=np.linspace(-1,1,features.shape[1]), 

@@ -1,32 +1,33 @@
-from cosmopower_NN import cosmopower_NN
-import cosmopower as cp
+# from cosmopower_NN import cosmopower_NN
+from sunbird.inference import Nested
 import logging
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-import affine
 
 # enable latex
 plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 
-logger = logging.getLogger("Test")
-parser = argparse.ArgumentParser()
+# logger = logging.getLogger("Test")
+# parser = argparse.ArgumentParser()
 
-parser.add_argument("--features", type=str, required=True)
-parser.add_argument("--params", type=str, required=True)
-parser.add_argument("--model", type=str, required=True)
-args = parser.parse_args()
+# parser.add_argument("--features", type=str, required=True)
+# parser.add_argument("--params", type=str, required=True)
+# parser.add_argument("--model", type=str, required=True)
+# args = parser.parse_args()
 
 
-gammat_model = cosmopower_NN(restore=True, 
-                      restore_filename=args.model,
-                      )
+# gammat_model = cosmopower_NN(restore=True, 
+#                       restore_filename=args.model,
+#                       )
 
-params = np.load(args.params, allow_pickle=True).item()
-test_params = {}
-for name in params.keys():
-    test_params[name] = list(np.array(params[name])[:100])
+# params = np.load(args.params, allow_pickle=True).item()
+# test_params = {}
+# for name in params.keys():
+#     test_params[name] = list(np.array(params[name])[:100])
+
+nested = Nested()
 
 
 # predicted = cp_nn.predictions_np(test_params)

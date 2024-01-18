@@ -26,7 +26,7 @@ test_params = {}
 for name in params.keys():
     test_params[name] = list(np.array(params[name])[:100])
 
-
+print(type(cp_nn))
 predicted = cp_nn.predictions_np(test_params)
 features = np.load(args.features)[:100]
 
@@ -42,21 +42,12 @@ fig, ax = plt.subplots()
 ax.fill_between(np.linspace(-1, 1, 10), q99[0], q99[1], alpha=0.5, label='99\%', color='C2')
 ax.fill_between(np.linspace(-1, 1, 10), q95[0], q95[1], alpha=0.5, label='95\%', color='C1')
 ax.fill_between(np.linspace(-1, 1, 10), q68[0], q68[1], alpha=1.0, label='68\%', color='C0')
-ax.legend()
-ax.set_xlabel('bin number')
-ax.set_ylabel(r'$\gamma_t$')
-ax.grid()
-plt.savefig('test_quantiles_512.pdf')
-
-
-bin_edges = np.linspace(0, 150, 30)
-bin_centres = (bin_edges[1:] + bin_edges[:-1]) / 2
-
-# fig, ax = plt.subplots()
-# for i in range(10):
-#     ax.plot(features[i], label='truth')
-#     ax.plot(predicted[i], label='prediction', ls='--')
-# ax.legend()
-# ax.set_xlabel('bin number')
-# ax.set_ylabel(r'$\gamma_t$')
-# plt.savefig('test.pdf')
+ax.legend(fontsize=15, loc='upper left')
+ax.set_xlabel('bin number', fontsize=15)
+ax.set_ylabel(r'$\Delta\gamma_t/\gamma_t$', fontsize=15)
+# ax.set_ylabel(r'$\Delta w(\theta)/w(\theta)$', fontsize=15)
+ax.set_xlim(-1, 1)
+ax.tick_params(labelsize=13, which='both')
+plt.tight_layout()
+# plt.savefig('fig/emulator_accuracy_wtheta.pdf', bbox_inches='tight')
+plt.savefig('fig/emulator_accuracy_gammat.pdf', bbox_inches='tight')

@@ -4,8 +4,8 @@ import pandas as pd
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-from sunbird.cosmology.growth_rate import Growth
-from cosmoprimo.fiducial import AbacusSummit
+# from sunbird.cosmology.growth_rate import Growth
+# from cosmoprimo.fiducial import AbacusSummit
 import argparse
 
 plt.rcParams.update({
@@ -18,16 +18,16 @@ labels = {
     "omega_cdm": r"\omega_{\rm cdm}",
     "sigma8_m": r"\sigma_8",
     "n_s": r"n_s",
-    "nrun": r"\alpha_s",
+    "alpha_s": r"\alpha_s",
     "N_ur": r"N_{\rm ur}",
     "w0_fld": r"w_0",
     "wa_fld": r"w_a",
     "logM_1": "logM_1",
     "logM_cut": r"logM_{\rm cut}",
     "alpha": r"\alpha",
-    "alpha_s": r"\alpha_{\rm vel, s}",
-    "alpha_c": r"\alpha_{\rm vel, c}",
-    "logsigma": r"\log \sigma",
+    # "alpha_s": r"\alpha_{\rm vel, s}",
+    # "alpha_c": r"\alpha_{\rm vel, c}",
+    "sigma": r"\log \sigma",
     "kappa": r"\kappa",
     "s": r"s",
     "B_cen": r"B_{\rm cen}",
@@ -128,9 +128,9 @@ def get_MCSamples(filename, add_fsigma8=False, redshift=0.525, hmc=True,):
         "logM1": [13.2, 14.4],
         "logM_cut": [12.4, 13.3],
         "alpha": [0.7, 1.5],
-        "alpha_s": [0.7, 1.3],
-        "alpha_c": [0.0, 0.5],
-        "logsigma": [-3.0, 0.0],
+        # "alpha_s": [0.7, 1.3],
+        # "alpha_c": [0.0, 0.5],
+        "sigma": [-3.0, 0.0],
         "kappa": [0.0, 1.5],
         "s": [-1.0, 1.0],
         "B_cen": [-1.0, 1.0],
@@ -178,7 +178,7 @@ def get_true_params(
 
 
 args  = argparse.ArgumentParser()
-args.add_argument('--chain_dir', type=str, default='/pscratch/sd/e/epaillas/sunbird/chains/voxel_voids_fullap')
+args.add_argument('--chain_dir', type=str, default='./')
 args.add_argument('--param_space', type=str, default='cosmo')
 args.add_argument('--cosmology', type=int, default=0)
 args = args.parse_args()
@@ -188,11 +188,11 @@ chain_dir = Path(args.chain_dir)
 smin = 0.7
 smax = 150
 redshift = 0.525
-growth = Growth(emulate=True,)
+# growth = Growth(emulate=True,)
 param_space = 'base_bbn'
 
 chain_handles = [
-    f'/pscratch/sd/e/epaillas/sunbird/chains/dsl/abacus_c0_gammat'
+    f'./base/'
 ]
 chain_labels = [
     'gammat_',
@@ -203,11 +203,10 @@ if args.param_space == 'cosmo':
     params_toplot = [
         'omega_cdm', 'sigma8_m', 'n_s',
         # 'nrun', 'N_ur', 'w0_fld', 'wa_fld',
-        # 'logM_cut', 'logM1', 'alpha',
-        # 'logsigma', 'kappa',
+        'logM_cut', 'logM_1', 's', 'B_cen', 'B_sat',
     ]
 
-truth = get_true_params(args.cosmology, 0, add_fsigma8=False, redshift=redshift)
+# truth = get_true_params(args.cosmology, 0, add_fsigma8=False, redshift=redshift)
 # truth['omega_ncdm'] = 0.00064420
 # if args.cosmology == 0:
 #     truth['h'] = 0.6736
@@ -228,16 +227,16 @@ for i in range(len(chain_handles)):
     print(chain_labels[i])
     print(samples.getTable(limit=1).tableTex())
 
-samples_planck_boss = loadMCSamples('/global/cfs/cdirs/desi/users/plemos/planck/chains/base/plikHM_TTTEEE_lowl_lowE_lensing/base_plikHM_TTTEEE_lowl_lowE_lensing', settings={'ignore_rows': 0.3})
-samples_planck_boss.addDerived(samples_planck_boss.getParams().omegabh2, name='omega_b', label='\omega_{\rm cdm}')
-samples_planck_boss.addDerived(samples_planck_boss.getParams().omegach2, name='omega_cdm', label='\omega_{\rm cdm}')
-samples_planck_boss.addDerived(samples_planck_boss.getParams().omegam, name='Omega_m', label='\Omega_{\rm m}')
-samples_planck_boss.addDerived(samples_planck_boss.getParams().sigma8, name='sigma8_m', label='\sigma_8')
-samples_planck_boss.addDerived(samples_planck_boss.getParams().ns, name='n_s', label='n_s')
+# samples_planck_boss = loadMCSamples('/global/cfs/cdirs/desi/users/plemos/planck/chains/base/plikHM_TTTEEE_lowl_lowE_lensing/base_plikHM_TTTEEE_lowl_lowE_lensing', settings={'ignore_rows': 0.3})
+# samples_planck_boss.addDerived(samples_planck_boss.getParams().omegabh2, name='omega_b', label='\omega_{\rm cdm}')
+# samples_planck_boss.addDerived(samples_planck_boss.getParams().omegach2, name='omega_cdm', label='\omega_{\rm cdm}')
+# samples_planck_boss.addDerived(samples_planck_boss.getParams().omegam, name='Omega_m', label='\Omega_{\rm m}')
+# samples_planck_boss.addDerived(samples_planck_boss.getParams().sigma8, name='sigma8_m', label='\sigma_8')
+# samples_planck_boss.addDerived(samples_planck_boss.getParams().ns, name='n_s', label='n_s')
 # samples_list.append(samples_planck_boss)
 
 param_limits = {
-    'omega_cdm': [0.112, 0.1293],
+    # 'omega_cdm': [0.112, 0.1293],
     # 'sigma8_m': [0.68, 0.92],
     # 'n_s': [0.9012, 1.0],
     # 'logsigma': [-0.7, -0.3],
@@ -272,7 +271,7 @@ g.triangle_plot(
     legend_loc='upper right',
     title_limit=1,
     # param_limits=param_limits,
-    markers=truth,
+    # markers=truth,
 )
 # plt.show()
 # output_fn = f'{args.param_space}_inference_abacus_voxel_voids_c0.png'
