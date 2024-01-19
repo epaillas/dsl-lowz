@@ -4,8 +4,8 @@ import pandas as pd
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-# from sunbird.cosmology.growth_rate import Growth
-# from cosmoprimo.fiducial import AbacusSummit
+from sunbird.cosmology.growth_rate import Growth
+from cosmoprimo.fiducial import AbacusSummit
 import argparse
 
 plt.rcParams.update({
@@ -125,7 +125,7 @@ def get_MCSamples(filename, add_fsigma8=False, redshift=0.525, hmc=True,):
         "N_ur": [1.188, 2.889],
         "w0_fld": [-1.22, -0.726],
         "wa_fld": [-0.628, 0.621],
-        "logM1": [13.2, 14.4],
+        "logM_1": [13.2, 14.4],
         "logM_cut": [12.4, 13.3],
         "alpha": [0.7, 1.5],
         # "alpha_s": [0.7, 1.3],
@@ -185,43 +185,53 @@ args = args.parse_args()
 
 chain_dir = Path(args.chain_dir)
 
-smin = 0.7
-smax = 150
-redshift = 0.525
-# growth = Growth(emulate=True,)
+redshift = 0.0
+growth = Growth(emulate=True,)
 param_space = 'base_bbn'
 
 chain_handles = [
-    f'./base/'
+    # f'./base_wtheta/',
+    # f'./base_DSL/',
+    # f'./base_gammat/',
+    # f'./base_DSC/',
+    f'./base_combined/',
 ]
 chain_labels = [
-    'gammat_',
+    # r'$w(\theta)$',
+    # r'DSL',
+    # r'$\gamma_t$',
+    # r'DSC',
+    r'Combined',
 ]
 
 
 if args.param_space == 'cosmo':
     params_toplot = [
-        'omega_cdm', 'sigma8_m', 'n_s',
+        'omega_cdm', 'sigma8_m', 'n_s', 'h', 'Omega_m', 'fsigma8',
         # 'nrun', 'N_ur', 'w0_fld', 'wa_fld',
+        # 'logM_cut', 'logM_1', 's', 'B_cen', 'B_sat',
+    ]
+else:
+    params_toplot = [
         'logM_cut', 'logM_1', 's', 'B_cen', 'B_sat',
     ]
 
-# truth = get_true_params(args.cosmology, 0, add_fsigma8=False, redshift=redshift)
-# truth['omega_ncdm'] = 0.00064420
-# if args.cosmology == 0:
-#     truth['h'] = 0.6736
-# elif args.cosmology == 3:
-#     truth['h'] = 0.7160
+truth = get_true_params(args.cosmology, 0, add_fsigma8=False, redshift=redshift)
+truth['omega_ncdm'] = 0.00064420
+if args.cosmology == 0:
+    truth['h'] = 0.6736
+elif args.cosmology == 3:
+    truth['h'] = 0.7160
 
-# truth['Omega_m'] = (truth['omega_cdm'] + truth['omega_b'] + truth['omega_ncdm']) / truth['h'] ** 2
-
+truth['Omega_m'] = (truth['omega_cdm'] + truth['omega_b'] + truth['omega_ncdm']) / truth['h'] ** 2
+print(truth)
 samples_list = []
 
 for i in range(len(chain_handles)):
     chain_fn = chain_dir / chain_handles[i] / 'results.csv'
     print(chain_fn)
     hmc = False
-    samples, names = get_MCSamples(chain_fn, hmc=hmc, add_fsigma8=False,)
+    samples, names = get_MCSamples(chain_fn, hmc=hmc, add_fsigma8=True,)
     samples_list.append(samples)
     print(samples.getLikeStats())
     print(chain_labels[i])
@@ -271,9 +281,10 @@ g.triangle_plot(
     legend_loc='upper right',
     title_limit=1,
     # param_limits=param_limits,
-    # markers=truth,
+    markers=truth,
 )
 # plt.show()
 # output_fn = f'{args.param_space}_inference_abacus_voxel_voids_c0.png'
 # plt.savefig(output_fn, bbox_inches='tight', dpi=300)
-plt.show()
+plt.savefig(f'{args.param_space}.pdf', bbox_inches='tight')
+# plt.show()
